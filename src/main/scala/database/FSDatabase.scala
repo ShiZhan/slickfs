@@ -75,8 +75,9 @@ object FSDatabase {
       }
     } catch {
       case e: Exception => e.printStackTrace
+    } finally {
+      connection.close()
     }
-    connection.close()
   }
 
   def update(sql: String) = {
@@ -87,8 +88,9 @@ object FSDatabase {
       println("Return: " + result)
     } catch {
       case e: Exception => e.printStackTrace
+    } finally {
+      connection.close()
     }
-    connection.close()
   }
 
   def list = {
