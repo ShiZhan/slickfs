@@ -2,7 +2,7 @@ package database
 
 object FSDatabase {
   import java.io.File
-  import java.sql.Date
+  import java.sql.{ Connection, Date, DriverManager }
   import java.text.SimpleDateFormat
   import scala.slick.driver.H2Driver.simple._
   import scala.util.Properties.{ envOrElse, userDir }
@@ -63,6 +63,35 @@ object FSDatabase {
   }
 
   def query(sql: String) = {
+    val connection = DriverManager.getConnection(url, "", "")
+    try {
+      val statement = connection.createStatement
+      val rs = statement.executeQuery(sql)
+      val rsmd = rs.getMetaData
+      val cols = rsmd.getColumnCount
+      while (rs.next()) {
+        val row = (1 to cols) map { rs.getString(_) } mkString ("; ")
+        println(row)
+      }
+    } catch {
+      case e: Exception => e.printStackTrace
+    }
+    connection.close()
+  }
+
+  def update(sql: String) = {
+    val connection = DriverManager.getConnection(url, "", "")
+    try {
+      val statement = connection.createStatement
+      val result = statement.executeUpdate(sql)
+      println("Return: " + result)
+    } catch {
+      case e: Exception => e.printStackTrace
+    }
+    connection.close()
+  }
+
+  def list = {
     Database.forURL(url, driver = driver) withSession { implicit session =>
       directoryTable foreach {
         case (path, size, date, r, w, x, d) =>
