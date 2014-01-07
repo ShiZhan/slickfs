@@ -1,12 +1,13 @@
 package database
 
 object FSDatabase {
-  import java.io.File
+  import java.io.{ File, FileInputStream, BufferedInputStream }
   import java.sql.{ Date, ResultSet }
   import java.text.SimpleDateFormat
   import scala.io.Source
   import scala.slick.driver.H2Driver.simple._
   import scala.util.Properties.{ envOrElse, userDir }
+  import org.apache.commons.codec.digest.DigestUtils.md5Hex
 
   class DirectoryTable(tag: Tag)
     extends Table[(String, Long, Date, Boolean, Boolean, Boolean, Boolean)](tag, "DIRECTORY") {
@@ -21,30 +22,45 @@ object FSDatabase {
   }
   val directoryTable = TableQuery[DirectoryTable]
 
-  val db_file = new File(envOrElse("SFS_DB", userDir)).getAbsolutePath
-  val url = "jdbc:h2:" + db_file
+  class ChecksumTable(tag: Tag)
+    extends Table[(String, String)](tag, "CHECKSUM") {
+    def name = column[String]("NAME", O.PrimaryKey)
+    def md5 = column[String]("MD5")
+    def * = (name, md5)
+  }
+  val checksumTable = TableQuery[ChecksumTable]
+
+  val dbroot = envOrElse("SFSROOT", userDir)
+  val dbpath = new File(dbroot + "/sfsdb").getAbsolutePath
+  val url = "jdbc:h2:" + dbpath
   val driver = "org.h2.Driver"
-  val dateFormat = new SimpleDateFormat("yyyy-MM-dd")
 
   def create =
-    Database.forURL(url, driver = driver)
-      .withSession { implicit session => directoryTable.ddl.create }
-
-  def list =
     Database.forURL(url, driver = driver) withSession { implicit session =>
-      directoryTable foreach {
-        case (path, size, date, r, w, x, d) =>
-          println(path + "\t" + size + "\t" + date + "\t" + r + ":" + w + ":" + x + ":" + d)
-      }
+      directoryTable.ddl.create
+      checksumTable.ddl.create
     }
 
-  def listAllFiles(f: File): Array[File] = {
-    val list = f.listFiles
+  def listAllFiles(file: File): Array[File] = {
+    val list = file.listFiles
     if (list == null)
       Array[File]()
     else
       list ++ list.filter(_.isDirectory).flatMap(listAllFiles)
   }
+
+  def checkFile(file: File) = {
+    try {
+      val fIS = new BufferedInputStream(new FileInputStream(file))
+      val md5 = md5Hex(fIS)
+      fIS.close
+      md5
+    } catch {
+      case e: Exception => ""
+    }
+  }
+
+  val dateFormat = new SimpleDateFormat("yyyy-MM-dd")
 
   def gather(fileName: String) = {
     val file = new File(fileName)
@@ -70,6 +86,11 @@ object FSDatabase {
             f.canExecute,
             f.isDirectory)
 
+          if (f.isFile)
+            checksumTable += (
+              f.getAbsolutePath,
+              checkFile(f))
+
           if (i % delta == 0) print("importing [%2d%%]\r".format(i * 100 / total))
         }
         print("importing [100%]")
@@ -80,15 +101,16 @@ object FSDatabase {
   def runQuery(sqlFile: String) = {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
-      SQLHandler.query(sql) match {
-        case rs: ResultSet => {
-          val rsmd = rs.getMetaData
-          val cols = rsmd.getColumnCount
-          while (rs.next()) {
-            val row = (1 to cols) map { rs.getString } mkString ("; ")
-            println(row)
-          }
+      val statement = session.conn.createStatement
+      try {
+        val rs = statement.executeQuery(sql)
+        val rsmd = rs.getMetaData
+        val cols = rsmd.getColumnCount
+        while (rs.next()) {
+          val row = (1 to cols) map { rs.getString } mkString ("; ")
+          println(row)
         }
+      } catch {
         case e: Exception => e.printStackTrace
       }
     }
@@ -97,8 +119,11 @@ object FSDatabase {
   def runUpdate(sqlFile: String) = {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
-      SQLHandler.update(sql) match {
-        case result: Int => println("Return: " + result)
+      val statement = session.conn.createStatement
+      try {
+        val result = statement.executeUpdate(sql)
+        println("Return: " + result)
+      } catch {
         case e: Exception => e.printStackTrace
       }
     }
