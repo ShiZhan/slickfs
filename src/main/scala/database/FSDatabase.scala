@@ -4,6 +4,7 @@ object FSDatabase {
   import java.io.File
   import java.sql.Date
   import java.text.SimpleDateFormat
+  import scala.io.Source
   import scala.slick.driver.H2Driver.simple._
   import scala.util.Properties.{ envOrElse, userDir }
 
@@ -25,22 +26,17 @@ object FSDatabase {
   val driver = "org.h2.Driver"
   val dateFormat = new SimpleDateFormat("yyyy-MM-dd")
 
-  def initialize =
-    try {
-      Database.forURL(url, driver = driver)
-        .withSession { implicit session => directoryTable.ddl.create }
-    } catch {
-      case e: Exception => println(e)
-    }
+  def create =
+    Database.forURL(url, driver = driver)
+      .withSession { implicit session => directoryTable.ddl.create }
 
-  def list = {
+  def list =
     Database.forURL(url, driver = driver) withSession { implicit session =>
       directoryTable foreach {
         case (path, size, date, r, w, x, d) =>
           println(path + "\t" + size + "\t" + date + "\t" + r + ":" + w + ":" + x + ":" + d)
       }
     }
-  }
 
   def listAllFiles(f: File): Array[File] = {
     val list = f.listFiles
@@ -50,7 +46,8 @@ object FSDatabase {
       list ++ list.filter(_.isDirectory).flatMap(listAllFiles)
   }
 
-  def gather(file: File) = {
+  def gather(fileName: String) = {
+    val file = new File(fileName)
     val files =
       if (file.exists)
         if (file.isDirectory) listAllFiles(file) else Array(file)
@@ -80,34 +77,17 @@ object FSDatabase {
     }
   }
 
-  def query(sql: String) = {
+  def runQuery(sqlFile: String) = {
+    val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
-      val connection = session.conn
-      val statement = connection.createStatement
-      try {
-        val rs = statement.executeQuery(sql)
-        val rsmd = rs.getMetaData
-        val cols = rsmd.getColumnCount
-        while (rs.next()) {
-          val row = (1 to cols) map { rs.getString(_) } mkString ("; ")
-          println(row)
-        }
-      } catch {
-        case e: Exception => e.printStackTrace
-      }
+      SQLHandler.query(sql)
     }
   }
 
-  def update(sql: String) = {
+  def runUpdate(sqlFile: String) = {
+    val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
-      val connection = session.conn
-      val statement = connection.createStatement
-      try {
-        val result = statement.executeUpdate(sql)
-        println("Return: " + result)
-      } catch {
-        case e: Exception => e.printStackTrace
-      }
+      SQLHandler.update(sql)
     }
   }
 }

@@ -1,13 +1,13 @@
 object slickfs extends App {
-  import database.FSDatabase
+  import database.FSDatabase.{ create, gather, runQuery, runUpdate }
 
   val usage = "slickfs {-c|-i <File|Directory>|-q <SQL>|-u <SQL>}"
   args.toList match {
     case Nil => println(usage)
-    case "-c" :: Nil => FSDatabase.initialize
-    case "-i" :: input :: Nil => FSDatabase.gather(new java.io.File(input))
-    case "-q" :: query :: Nil => FSDatabase.query(query)
-    case "-u" :: query :: Nil => FSDatabase.update(query)
+    case "-c" :: Nil => create
+    case "-i" :: inputFN :: Nil => gather(inputFN)
+    case "-q" :: queryFN :: Nil => runQuery(queryFN)
+    case "-u" :: updateFN :: Nil => runUpdate(updateFN)
     case _ => println("incorrent parameter")
   }
 }
