@@ -7,6 +7,7 @@ object FSDatabase {
   import scala.io.Source
   import scala.slick.driver.H2Driver.simple._
   import scala.util.Properties.{ envOrElse, userDir }
+  import scala.compat.Platform.currentTime
   import org.apache.commons.codec.digest.DigestUtils.md5Hex
 
   class DirectoryTable(tag: Tag)
@@ -103,6 +104,8 @@ object FSDatabase {
     Database.forURL(url, driver = driver) withSession { implicit session =>
       val statement = session.conn.createStatement
       try {
+        val t1 = currentTime
+
         val rs = statement.executeQuery(sql)
         val rsmd = rs.getMetaData
         val cols = rsmd.getColumnCount
@@ -110,6 +113,10 @@ object FSDatabase {
           val row = (1 to cols) map { rs.getString } mkString ("; ")
           println(row)
         }
+
+        val t2 = currentTime
+
+        println("Query executed in %d milliseconds".format(t2 - t1))
       } catch {
         case e: Exception => e.printStackTrace
       }
@@ -121,8 +128,14 @@ object FSDatabase {
     Database.forURL(url, driver = driver) withSession { implicit session =>
       val statement = session.conn.createStatement
       try {
+        val t1 = currentTime
+
         val result = statement.executeUpdate(sql)
         println("Return: " + result)
+
+        val t2 = currentTime
+
+        println("Query executed in %d milliseconds".format(t2 - t1))
       } catch {
         case e: Exception => e.printStackTrace
       }
