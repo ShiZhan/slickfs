@@ -2,7 +2,7 @@ package database
 
 object FSDatabase {
   import java.io.File
-  import java.sql.{ Connection, Date, DriverManager }
+  import java.sql.{ Date, DriverManager }
   import java.text.SimpleDateFormat
   import scala.slick.driver.H2Driver.simple._
   import scala.util.Properties.{ envOrElse, userDir }
@@ -33,6 +33,15 @@ object FSDatabase {
       case e: Exception => println(e)
     }
 
+  def list = {
+    Database.forURL(url, driver = driver) withSession { implicit session =>
+      directoryTable foreach {
+        case (path, size, date, r, w, x, d) =>
+          println(path + "\t" + size + "\t" + date + "\t" + r + ":" + w + ":" + x + ":" + d)
+      }
+    }
+  }
+
   def listAllFiles(f: File): Array[File] = {
     val list = f.listFiles
     if (list == null)
@@ -41,24 +50,33 @@ object FSDatabase {
       list ++ list.filter(_.isDirectory).flatMap(listAllFiles)
   }
 
-  def flattenFiles(file: File) =
-    if (file.exists)
-      if (file.isDirectory) listAllFiles(file) else Array(file)
-    else
-      Array[File]()
-
   def gather(file: File) = {
-    val files = flattenFiles(file)
-    Database.forURL(url, driver = driver) withSession { implicit session =>
-      for (f <- files)
-        directoryTable += (
-          f.getAbsolutePath,
-          f.length,
-          Date.valueOf(dateFormat.format(f.lastModified)),
-          f.canRead,
-          f.canWrite,
-          f.canExecute,
-          f.isDirectory)
+    val files =
+      if (file.exists)
+        if (file.isDirectory) listAllFiles(file) else Array(file)
+      else
+        Array[File]()
+
+    val total = files.length
+    if (total > 0) {
+      val delta = if (total < 100) 1 else total / 100
+      val filesWithIndex = files.zipWithIndex
+
+      Database.forURL(url, driver = driver) withSession { implicit session =>
+        for ((f, i) <- filesWithIndex) {
+          directoryTable += (
+            f.getAbsolutePath,
+            f.length,
+            Date.valueOf(dateFormat.format(f.lastModified)),
+            f.canRead,
+            f.canWrite,
+            f.canExecute,
+            f.isDirectory)
+
+          if (i % delta == 0) print("importing [%2d%%]\r".format(i * 100 / total))
+        }
+        print("importing [100%]")
+      }
     }
   }
 
@@ -90,15 +108,6 @@ object FSDatabase {
       case e: Exception => e.printStackTrace
     } finally {
       connection.close()
-    }
-  }
-
-  def list = {
-    Database.forURL(url, driver = driver) withSession { implicit session =>
-      directoryTable foreach {
-        case (path, size, date, r, w, x, d) =>
-          println(path + "\t" + size + "\t" + date + "\t" + r + ":" + w + ":" + x + ":" + d)
-      }
     }
   }
 }
