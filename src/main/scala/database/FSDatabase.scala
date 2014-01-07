@@ -2,7 +2,7 @@ package database
 
 object FSDatabase {
   import java.io.File
-  import java.sql.Date
+  import java.sql.{ Date, ResultSet }
   import java.text.SimpleDateFormat
   import scala.io.Source
   import scala.slick.driver.H2Driver.simple._
@@ -80,14 +80,27 @@ object FSDatabase {
   def runQuery(sqlFile: String) = {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
-      SQLHandler.query(sql)
+      SQLHandler.query(sql) match {
+        case rs: ResultSet => {
+          val rsmd = rs.getMetaData
+          val cols = rsmd.getColumnCount
+          while (rs.next()) {
+            val row = (1 to cols) map { rs.getString(_) } mkString ("; ")
+            println(row)
+          }
+        }
+        case e: Exception => e.printStackTrace
+      }
     }
   }
 
   def runUpdate(sqlFile: String) = {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
-      SQLHandler.update(sql)
+      SQLHandler.update(sql) match {
+        case result: Int => println("Return: " + result)
+        case e: Exception => e.printStackTrace
+      }
     }
   }
 }
