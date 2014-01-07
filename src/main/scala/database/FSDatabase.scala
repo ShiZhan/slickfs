@@ -10,13 +10,13 @@ object FSDatabase {
 
   class DirectoryTable(tag: Tag)
     extends Table[(String, Long, Date, Boolean, Boolean, Boolean, Boolean)](tag, "DIRECTORY") {
-    def name = column[String]("Name", O.PrimaryKey)
-    def fileSize = column[Long]("FileSize")
-    def lastMod = column[Date]("LastModified")
-    def canRead = column[Boolean]("canRead")
-    def canWrite = column[Boolean]("canWrite")
-    def canExecute = column[Boolean]("canExecute")
-    def isDirectory = column[Boolean]("isDirectory")
+    def name = column[String]("NAME", O.PrimaryKey)
+    def fileSize = column[Long]("FILESIZE")
+    def lastMod = column[Date]("LASTMODIFIED")
+    def canRead = column[Boolean]("R")
+    def canWrite = column[Boolean]("W")
+    def canExecute = column[Boolean]("X")
+    def isDirectory = column[Boolean]("D")
     def * = (name, fileSize, lastMod, canRead, canWrite, canExecute, isDirectory)
   }
   val directoryTable = TableQuery[DirectoryTable]
@@ -85,7 +85,7 @@ object FSDatabase {
           val rsmd = rs.getMetaData
           val cols = rsmd.getColumnCount
           while (rs.next()) {
-            val row = (1 to cols) map { rs.getString(_) } mkString ("; ")
+            val row = (1 to cols) map { rs.getString } mkString ("; ")
             println(row)
           }
         }
