@@ -1,14 +1,45 @@
 package database
 
-object FSDatabase {
+object FSOperation {
   import java.io.{ File, FileInputStream, BufferedInputStream }
+  import org.apache.commons.codec.digest.DigestUtils.md5Hex
+
+  private def listAllFiles(file: File): Array[File] = {
+    val list = file.listFiles
+    if (list == null)
+      Array[File]()
+    else
+      list ++ list.filter(_.isDirectory).flatMap(listAllFiles)
+  }
+
+  def flattenFile(file: File) =
+    if (file.exists)
+      if (file.isDirectory) listAllFiles(file) else Array(file)
+    else
+      Array[File]()
+
+  def checkFile(file: File) = {
+    try {
+      val fIS = new BufferedInputStream(new FileInputStream(file))
+      val md5 = md5Hex(fIS)
+      fIS.close
+      md5
+    } catch {
+      case e: Exception => ""
+    }
+  }
+}
+
+object FSDatabase {
+  import java.io.File
   import java.sql.{ Date, ResultSet }
   import java.text.SimpleDateFormat
   import scala.io.Source
   import scala.slick.driver.H2Driver.simple._
   import scala.util.Properties.{ envOrElse, userDir }
   import scala.compat.Platform.currentTime
-  import org.apache.commons.codec.digest.DigestUtils.md5Hex
+
+  import FSOperation._
 
   class DirectoryTable(tag: Tag)
     extends Table[(String, Long, Date, Boolean, Boolean, Boolean, Boolean)](tag, "DIRECTORY") {
@@ -23,8 +54,7 @@ object FSDatabase {
   }
   val directoryTable = TableQuery[DirectoryTable]
 
-  class ChecksumTable(tag: Tag)
-    extends Table[(String, String)](tag, "CHECKSUM") {
+  class ChecksumTable(tag: Tag) extends Table[(String, String)](tag, "CHECKSUM") {
     def name = column[String]("NAME", O.PrimaryKey)
     def md5 = column[String]("MD5")
     def * = (name, md5)
@@ -42,34 +72,10 @@ object FSDatabase {
       checksumTable.ddl.create
     }
 
-  def listAllFiles(file: File): Array[File] = {
-    val list = file.listFiles
-    if (list == null)
-      Array[File]()
-    else
-      list ++ list.filter(_.isDirectory).flatMap(listAllFiles)
-  }
-
-  def checkFile(file: File) = {
-    try {
-      val fIS = new BufferedInputStream(new FileInputStream(file))
-      val md5 = md5Hex(fIS)
-      fIS.close
-      md5
-    } catch {
-      case e: Exception => ""
-    }
-  }
-
   val dateFormat = new SimpleDateFormat("yyyy-MM-dd")
 
   def gather(fileName: String) = {
-    val file = new File(fileName)
-    val files =
-      if (file.exists)
-        if (file.isDirectory) listAllFiles(file) else Array(file)
-      else
-        Array[File]()
+    val files = flattenFile(new File(fileName))
 
     val total = files.length
     if (total > 0) {
