@@ -12,28 +12,34 @@ object FSOperation {
       list ++ list.filter(_.isDirectory).flatMap(listAllFiles)
   }
 
-  def flattenFile(file: File) =
-    if (file.exists)
-      if (file.isDirectory) listAllFiles(file) else Array(file)
-    else
-      Array[File]()
+  private val dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd")
 
-  def checkFile(file: File) = {
-    try {
-      val fIS = new BufferedInputStream(new FileInputStream(file))
-      val md5 = md5Hex(fIS)
-      fIS.close
-      md5
-    } catch {
-      case e: Exception => ""
+  implicit class FileExt(file: File) {
+    def flatten =
+      if (file.exists)
+        if (file.isDirectory) listAllFiles(file) else Array(file)
+      else
+        Array[File]()
+
+    def checksum = {
+      try {
+        val fIS = new BufferedInputStream(new FileInputStream(file))
+        val md5 = md5Hex(fIS)
+        fIS.close
+        md5
+      } catch {
+        case e: Exception => ""
+      }
     }
+
+    def lastModifiedString =
+      java.sql.Date.valueOf(dateFormat.format(file.lastModified))
   }
 }
 
 object FSDatabase {
   import java.io.File
-  import java.sql.{ Date, ResultSet }
-  import java.text.SimpleDateFormat
+  import java.sql.Date
   import scala.io.Source
   import scala.slick.driver.H2Driver.simple._
   import scala.util.Properties.{ envOrElse, userDir }
@@ -72,10 +78,8 @@ object FSDatabase {
       checksumTable.ddl.create
     }
 
-  val dateFormat = new SimpleDateFormat("yyyy-MM-dd")
-
   def gather(fileName: String) = {
-    val files = flattenFile(new File(fileName))
+    val files = new File(fileName).flatten
 
     val total = files.length
     if (total > 0) {
@@ -87,7 +91,7 @@ object FSDatabase {
           directoryTable += (
             f.getAbsolutePath,
             f.length,
-            Date.valueOf(dateFormat.format(f.lastModified)),
+            f.lastModifiedString,
             f.canRead,
             f.canWrite,
             f.canExecute,
@@ -96,7 +100,7 @@ object FSDatabase {
           if (f.isFile)
             checksumTable += (
               f.getAbsolutePath,
-              checkFile(f))
+              f.checksum)
 
           if (i % delta == 0) print("importing [%2d%%]\r".format(i * 100 / total))
         }
