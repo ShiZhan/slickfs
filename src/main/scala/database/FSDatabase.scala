@@ -1,42 +1,5 @@
 package database
 
-object FSOperation {
-  import java.io.{ File, FileInputStream, BufferedInputStream }
-  import org.apache.commons.codec.digest.DigestUtils.md5Hex
-
-  private def listAllFiles(file: File): Array[File] = {
-    val list = file.listFiles
-    if (list == null)
-      Array[File]()
-    else
-      list ++ list.filter(_.isDirectory).flatMap(listAllFiles)
-  }
-
-  private val dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd")
-
-  implicit class FileExt(file: File) {
-    def flatten =
-      if (file.exists)
-        if (file.isDirectory) listAllFiles(file) else Array(file)
-      else
-        Array[File]()
-
-    def checksum = {
-      try {
-        val fIS = new BufferedInputStream(new FileInputStream(file))
-        val md5 = md5Hex(fIS)
-        fIS.close
-        md5
-      } catch {
-        case e: Exception => ""
-      }
-    }
-
-    def lastModifiedString =
-      java.sql.Date.valueOf(dateFormat.format(file.lastModified))
-  }
-}
-
 object FSDatabase {
   import java.io.File
   import java.sql.Date
@@ -44,7 +7,7 @@ object FSDatabase {
   import scala.slick.driver.H2Driver.simple._
   import scala.util.Properties.{ envOrElse, userDir }
   import scala.compat.Platform.currentTime
-  import FSOperation._
+  import helper.FileEx.FileOps
 
   class DirectoryTable(tag: Tag)
     extends Table[(String, Long, Date, Boolean, Boolean, Boolean, Boolean)](tag, "DIRECTORY") {
