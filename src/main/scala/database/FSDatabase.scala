@@ -10,7 +10,7 @@ object FSDatabase {
   import helper.FileEx.FileOps
 
   class DirectoryTable(tag: Tag)
-    extends Table[(String, Long, Date, Boolean, Boolean, Boolean, Boolean)](tag, "DIRECTORY") {
+    extends Table[(String, Long, Date, Boolean, Boolean, Boolean, Boolean, String)](tag, "DIRECTORY") {
     def name = column[String]("NAME", O.PrimaryKey)
     def fileSize = column[Long]("FILESIZE")
     def lastMod = column[Date]("LASTMODIFIED")
@@ -18,7 +18,8 @@ object FSDatabase {
     def canWrite = column[Boolean]("W")
     def canExecute = column[Boolean]("X")
     def isDirectory = column[Boolean]("D")
-    def * = (name, fileSize, lastMod, canRead, canWrite, canExecute, isDirectory)
+    def upperLevel = column[String]("UP")
+    def * = (name, fileSize, lastMod, canRead, canWrite, canExecute, isDirectory, upperLevel)
   }
   val directoryTable = TableQuery[DirectoryTable]
 
@@ -56,8 +57,8 @@ object FSDatabase {
             f.canRead,
             f.canWrite,
             f.canExecute,
-            f.isDirectory)
-
+            f.isDirectory,
+            f.getParent)
           if (f.isFile)
             checksumTable += (
               f.getAbsolutePath,
