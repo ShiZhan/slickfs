@@ -85,14 +85,12 @@ object FSDatabase {
   def runQuery(sqlFile: String) = {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
-      val statement = session.conn.createStatement
       try {
         val t1 = currentTime
         val rs = Q.queryNA[FileEntry](sql)
         val t2 = currentTime
 
         rs.foreach(println)
-
         println("Query executed in %d milliseconds".format(t2 - t1))
       } catch {
         case e: Exception => e.printStackTrace
