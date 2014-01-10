@@ -5,6 +5,8 @@ object FSDatabase {
   import java.sql.Date
   import scala.io.Source
   import scala.slick.driver.H2Driver.simple._
+  import scala.slick.jdbc.{ GetResult, StaticQuery => Q }
+  import Q.interpolation
   import scala.util.Properties.{ envOrElse, userDir }
   import scala.compat.Platform.currentTime
   import helper.FileEx.FileOps
@@ -29,6 +31,15 @@ object FSDatabase {
     def * = (name, md5)
   }
   val checksumTable = TableQuery[ChecksumTable]
+
+  case class FileEntry(name: String, size: Long, lastMod: Date, canRead: Boolean,
+    canWrite: Boolean, canExecute: Boolean, isDirectory: Boolean, upperLevel: String) {
+    override def toString =
+      name + ';' + size + ';' + lastMod + ';' + canRead + ';' + canWrite + ';' +
+        canExecute + ';' + isDirectory + ';' + upperLevel
+  }
+  implicit val getFileEntryResult =
+    GetResult(r => FileEntry(r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<))
 
   val dbroot = envOrElse("SFSROOT", userDir)
   val dbpath = new File(dbroot + "/sfsdb").getAbsolutePath
@@ -77,15 +88,10 @@ object FSDatabase {
       val statement = session.conn.createStatement
       try {
         val t1 = currentTime
-        val rs = statement.executeQuery(sql)
+        val rs = Q.queryNA[FileEntry](sql)
         val t2 = currentTime
 
-        val rsmd = rs.getMetaData
-        val cols = rsmd.getColumnCount
-        while (rs.next()) {
-          val row = (1 to cols) map { rs.getString } mkString ("; ")
-          println(row)
-        }
+        rs.foreach(println)
 
         println("Query executed in %d milliseconds".format(t2 - t1))
       } catch {
@@ -97,13 +103,11 @@ object FSDatabase {
   def runUpdate(sqlFile: String) = {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
-      val statement = session.conn.createStatement
       try {
         val t1 = currentTime
-        val result = statement.executeUpdate(sql)
+        (Q.u + sql).execute
         val t2 = currentTime
 
-        println("Return: " + result)
         println("Query executed in %d milliseconds".format(t2 - t1))
       } catch {
         case e: Exception => e.printStackTrace
