@@ -58,7 +58,7 @@ object FSDatabase {
             f.canWrite,
             f.canExecute,
             f.isDirectory,
-            f.getParent)
+            f.getParentFile match { case p: File => p.getAbsolutePath; case _ => null })
           if (f.isFile)
             checksumTable += (
               f.getAbsolutePath,
