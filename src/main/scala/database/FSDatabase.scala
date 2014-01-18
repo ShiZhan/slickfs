@@ -9,7 +9,7 @@ object FSDatabase {
   import Q.interpolation
   import scala.util.Properties.{ envOrElse, userDir }
   import scala.compat.Platform.currentTime
-  import helper.FileEx.FileOps
+  import common.FileEx.FileOps
 
   class DirectoryTable(tag: Tag)
     extends Table[(String, Long, Date, Boolean, Boolean, Boolean, Boolean, String)](tag, "DIRECTORY") {
