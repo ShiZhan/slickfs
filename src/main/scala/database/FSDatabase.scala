@@ -88,9 +88,8 @@ object FSDatabase {
       try {
         val t1 = currentTime
         val rs = Q.queryNA[FileEntry](sql)
-        val t2 = currentTime
-
         rs.foreach(println)
+        val t2 = currentTime
         println("Query executed in %d milliseconds".format(t2 - t1))
       } catch {
         case e: Exception => e.printStackTrace
@@ -105,7 +104,6 @@ object FSDatabase {
         val t1 = currentTime
         (Q.u + sql).execute
         val t2 = currentTime
-
         println("Query executed in %d milliseconds".format(t2 - t1))
       } catch {
         case e: Exception => e.printStackTrace
