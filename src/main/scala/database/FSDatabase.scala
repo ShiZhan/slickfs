@@ -10,6 +10,7 @@ object FSDatabase {
   import scala.util.Properties.{ envOrElse, userDir }
   import scala.compat.Platform.currentTime
   import common.FileEx.FileOps
+  import common.Gauge._
 
   class DirectoryTable(tag: Tag)
     extends Table[(String, Long, Date, Boolean, Boolean, Boolean, Boolean, String)](tag, "DIRECTORY") {
@@ -54,13 +55,9 @@ object FSDatabase {
 
   def gather(fileName: String) = {
     val files = new File(fileName).flatten
-    val total = files.length
-    if (total > 0) {
-      val delta = if (total < 100) 1 else total / 100
-      val filesWithIndex = files.zipWithIndex
-
+    if (files.length > 0)
       Database.forURL(url, driver = driver) withSession { implicit session =>
-        for ((f, i) <- filesWithIndex) {
+        files.forAllDo { f =>
           directoryTable += (
             f.getAbsolutePath,
             f.length,
@@ -74,23 +71,16 @@ object FSDatabase {
             checksumTable += (
               f.getAbsolutePath,
               f.checksum)
-
-          if (i % delta == 0) print("importing [%2d%%]\r".format(i * 100 / total))
         }
-        print("importing [100%]")
       }
-    }
   }
 
   def runQuery(sqlFile: String) = {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
       try {
-        val t1 = currentTime
-        val rs = Q.queryNA[FileEntry](sql)
-        rs.foreach(println)
-        val t2 = currentTime
-        println("Query executed in %d milliseconds".format(t2 - t1))
+        val (r, t) = timedOp { () => Q.queryNA[FileEntry](sql).foreach(println) }
+        println("Query executed in %d milliseconds".format(t))
       } catch {
         case e: Exception => e.printStackTrace
       }
@@ -101,10 +91,8 @@ object FSDatabase {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
       try {
-        val t1 = currentTime
-        (Q.u + sql).execute
-        val t2 = currentTime
-        println("Query executed in %d milliseconds".format(t2 - t1))
+        val (r, t) = timedOp { () => (Q.u + sql).execute }
+        println("Query executed in %d milliseconds".format(t))
       } catch {
         case e: Exception => e.printStackTrace
       }
