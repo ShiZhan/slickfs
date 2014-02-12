@@ -57,7 +57,7 @@ object FSDatabase {
     val files = new File(fileName).flatten
     if (files.length > 0)
       Database.forURL(url, driver = driver) withSession { implicit session =>
-        files.forAllDo { f =>
+        files.foreachDo { f =>
           directoryTable += (
             f.getAbsolutePath,
             f.length,
