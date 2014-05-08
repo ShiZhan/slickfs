@@ -11,6 +11,7 @@ object FSDatabase {
   import scala.compat.Platform.currentTime
   import common.FileEx.FileOps
   import common.Gauge._
+  import common.Timing._
 
   class DirectoryTable(tag: Tag)
     extends Table[(String, Long, Date, Boolean, Boolean, Boolean, Boolean, String)](tag, "DIRECTORY") {
@@ -79,7 +80,7 @@ object FSDatabase {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
       try {
-        val (r, t) = timedOp { () => Q.queryNA[FileEntry](sql).foreach(println) }
+        val (r, t) = { () => Q.queryNA[FileEntry](sql).foreach(println) }.runWithTimer
         println("Query executed in %d milliseconds".format(t))
       } catch {
         case e: Exception => e.printStackTrace
@@ -91,7 +92,7 @@ object FSDatabase {
     val sql = Source.fromFile(new File(sqlFile)).mkString
     Database.forURL(url, driver = driver) withSession { implicit session =>
       try {
-        val (r, t) = timedOp { () => (Q.u + sql).execute }
+        val (r, t) = { () => (Q.u + sql).execute }.runWithTimer
         println("Query executed in %d milliseconds".format(t))
       } catch {
         case e: Exception => e.printStackTrace

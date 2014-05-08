@@ -12,7 +12,7 @@ object Gauge {
   implicit class ArrayOperations[T](items: Array[T]) {
     def foreachDo(op: T => Any) = {
       var i = 0
-      val total = items.size
+      val total = items.length
       val delta = if (total < 100) 1 else total / 100
       println(total + " objects to process")
       for (item <- items) {
@@ -22,12 +22,5 @@ object Gauge {
       }
       println("processing [100%]")
     }
-  }
-
-  def timedOp[T](op: () => T) = {
-    val t1 = compat.Platform.currentTime
-    val result = op()
-    val t2 = compat.Platform.currentTime
-    (result, t2 - t1)
   }
 }
